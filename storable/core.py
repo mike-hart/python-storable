@@ -1,4 +1,3 @@
-
 #
 # License
 #
@@ -26,20 +25,81 @@
 # Tim Aerts <aardbeiplantje@gmail.com>
 #
 
-from struct import (calcsize, unpack)
+from functools import wraps
 from io import BytesIO
+from struct import calcsize, unpack
+import logging
+import sys
 
-import six
 
-if six.PY3:
+if sys.version_info > (3, 0):
     xrange = range
 
 
+def id_():
+    n = 0
+    while True:
+        n += 1
+        yield n
+
+
+ID_GENERATOR = id_()
+LOG = logging.getLogger(__name__)
+DEBUG = False
+
+
+def _guess_type(data):
+    """
+    In Perl, the "scalar" type maps to different Python types. Strictly
+    speaking, the only *correct* output would be bytes objects. But this causes
+    a discrepancy when using "frozen" storables and non-frozen storables (unless
+    the generated test-data is wrong). For now, we will use the conversion
+    functions below to "guess" the type.
+    """
+    try:
+        converted_result = float(data)
+        if converted_result.is_integer():
+            # use "data" again to avoid rounding errors
+            converted_result = int(data)
+    except ValueError:
+        converted_result = None
+
+    if converted_result is None:
+        try:
+            converted_result = data.decode('ascii')
+        except UnicodeDecodeError:
+            converted_result = None
+
+    return data if converted_result is None else converted_result
+
+
+def maybelogged(f):
+    """
+    If the DEBUG flag is set in this module (must be set before importing),
+    deserialisation functions will be logged.
+    """
+
+    if not DEBUG:
+        return f
+
+    @wraps(f)
+    def fun(*args, **kwargs):
+        id_ = next(ID_GENERATOR)
+        LOG.debug('[%s] Entering %s with args=%r, kwargs=%r',
+                  id_, f.__name__, args, kwargs)
+        output = f(*args, **kwargs)
+        LOG.debug('[%s] Result: %r', id_, output)
+        return output
+    return fun
+
+
+@maybelogged
 def _read_size(fh, cache):
     fmt = cache['size_unpack_fmt']
     return unpack(fmt, fh.read(calcsize(fmt)))[0]
 
 
+@maybelogged
 def SX_OBJECT(fh, cache):
     # From Storable.xs store function:
     # * The tag is always written in network order.
@@ -48,88 +108,109 @@ def SX_OBJECT(fh, cache):
     return (0, i)
 
 
+@maybelogged
 def SX_LSCALAR(fh, cache):
-    return fh.read(_read_size(fh, cache))
+    raw_result = fh.read(_read_size(fh, cache))
+    return _guess_type(raw_result)
 
 
+@maybelogged
 def SX_LUTF8STR(fh, cache):
     return SX_LSCALAR(fh, cache).decode('utf-8')
 
 
+@maybelogged
 def SX_ARRAY(fh, cache):
     return [process_item(fh, cache) for _ in xrange(_read_size(fh, cache))]
 
 
+@maybelogged
 def SX_HASH(fh, cache):
     data = {}
     sz = _read_size(fh, cache)
     for _ in xrange(sz):
         value = process_item(fh, cache)
-        key = fh.read(_read_size(fh, cache))
+        key = _guess_type(fh.read(_read_size(fh, cache)))
         data[key] = value
     return data
 
 
+@maybelogged
 def SX_REF(fh, cache):
     return process_item(fh, cache)
 
 
+@maybelogged
 def SX_UNDEF(fh, cache):
     return None
 
 
+@maybelogged
 def SX_INTEGER(fh, cache):
     fmt = cache['int_unpack_fmt']
     return unpack(fmt, fh.read(calcsize(fmt)))[0]
 
 
+@maybelogged
 def SX_DOUBLE(fh, cache):
     fmt = cache['double_unpack_fmt']
     return unpack(fmt, fh.read(calcsize(fmt)))[0]
 
 
+@maybelogged
 def SX_BYTE(fh, cache):
     return _read_unsigned_byte(fh) - 128
 
 
+@maybelogged
 def SX_NETINT(fh, cache):
     fmt = '!I'
     return unpack(fmt, fh.read(calcsize(fmt)))[0]
 
 
+@maybelogged
 def SX_SCALAR(fh, cache):
     size = _read_unsigned_byte(fh)
-    return fh.read(size)
+    raw_result = fh.read(size)
+    return _guess_type(raw_result)
 
 
+@maybelogged
 def SX_UTF8STR(fh, cache):
     return SX_SCALAR(fh, cache).decode('utf-8')
 
 
+@maybelogged
 def SX_TIED_ARRAY(fh, cache):
     return process_item(fh, cache)
 
 
+@maybelogged
 def SX_TIED_HASH(fh, cache):
     return SX_TIED_ARRAY(fh, cache)
 
 
+@maybelogged
 def SX_TIED_SCALAR(fh, cache):
     return SX_TIED_ARRAY(fh, cache)
 
 
+@maybelogged
 def SX_SV_UNDEF(fh, cache):
     return None
 
 
+@maybelogged
 def SX_SV_YES(fh, cache):
     return True
 
 
+@maybelogged
 def SX_SV_NO(fh, cache):
     return False
 
 
+@maybelogged
 def SX_BLESS(fh, cache):
     size = _read_unsigned_byte(fh)
     package_name = fh.read(size)
@@ -137,22 +218,26 @@ def SX_BLESS(fh, cache):
     return process_item(fh, cache)
 
 
+@maybelogged
 def SX_IX_BLESS(fh, cache):
     indx = _read_unsigned_byte(fh)
     package_name = cache['classes'][indx]
     return process_item(fh, cache)
 
 
+@maybelogged
 def SX_OVERLOAD(fh, cache):
     return process_item(fh, cache)
 
 
+@maybelogged
 def SX_TIED_KEY(fh, cache):
     data = process_item(fh, cache)
     key = process_item(fh, cache)
     return data
 
 
+@maybelogged
 def SX_TIED_IDX(fh, cache):
     data = process_item(fh, cache)
     # idx's are always big-endian dumped by storable's freeze/nfreeze I think
@@ -160,15 +245,16 @@ def SX_TIED_IDX(fh, cache):
     return data
 
 
+@maybelogged
 def SX_HOOK(fh, cache):
     flags = _read_unsigned_byte(fh)
 
-    while flags & int(0x40):   # SHF_NEED_RECURSE
+    while flags & 0x40:   # SHF_NEED_RECURSE
         dummy = process_item(fh, cache)
         flags = _read_unsigned_byte(fh)
 
-    if flags & int(0x20):   # SHF_IDX_CLASSNAME
-        if flags & int(0x04):   # SHF_LARGE_CLASSLEN
+    if flags & 0x20:   # SHF_IDX_CLASSNAME
+        if flags & 0x04:   # SHF_LARGE_CLASSLEN
             # TODO: test
             fmt = '>I'
             indx = unpack(fmt, fh.read(calcsize(fmt)))[0]
@@ -176,7 +262,7 @@ def SX_HOOK(fh, cache):
             indx = _read_unsigned_byte(fh)
         package_name = cache['classes'][indx]
     else:
-        if flags & int(0x04):   # SHF_LARGE_CLASSLEN
+        if flags & 0x04:   # SHF_LARGE_CLASSLEN
             # TODO: test
             # FIXME: is this actually possible?
             class_size = _read_size(fh, cache)
@@ -188,17 +274,17 @@ def SX_HOOK(fh, cache):
 
     arguments = {}
 
-    if flags & int(0x08):   # SHF_LARGE_STRLEN
+    if flags & 0x08:   # SHF_LARGE_STRLEN
         str_size = _read_size(fh, cache)
     else:
         str_size = _read_unsigned_byte(fh)
 
     if str_size:
-        frozen_str = fh.read(str_size)
+        frozen_str = _guess_type(fh.read(str_size))
         arguments[0] = frozen_str
 
-    if flags & int(0x80):   # SHF_HAS_LIST
-        if flags & int(0x10):   # SHF_LARGE_LISTLEN
+    if flags & 0x80:   # SHF_HAS_LIST
+        if flags & 0x10:   # SHF_LARGE_LISTLEN
             list_size = _read_size(fh, cache)
         else:
             list_size = _read_unsigned_byte(fh)
@@ -210,28 +296,25 @@ def SX_HOOK(fh, cache):
 
     # FIXME: implement the real callback STORABLE_thaw() still, for now, just
     # return the dictionary 'arguments' as data
-    type = flags & int(0x03)  # SHF_TYPE_MASK 0x03
+    type = flags & 0x03  # SHF_TYPE_MASK 0x03
     data = arguments
     if type == 3:  # SHT_EXTRA
         # TODO
-        #print("SHT_EXTRA")
         pass
     if type == 0:  # SHT_SCALAR
         # TODO
-        #print("SHT_SCALAR")
         pass
     if type == 1:  # SHT_ARRAY
         # TODO
-        #print("SHT_ARRAY")
         pass
     if type == 2:  # SHT_HASH
         # TODO
-        #print("SHT_HASH")
         pass
 
     return data
 
 
+@maybelogged
 def SX_FLAG_HASH(fh, cache):
     # TODO: NOT YET IMPLEMENTED!!!!!!
     flags = _read_unsigned_byte(fh)
@@ -251,12 +334,12 @@ def SX_FLAG_HASH(fh, cache):
 
 def SX_VSTRING(fh, cache):
     value = SX_SCALAR(fh, cache)
-    return tuple(int(x) for x in value[1:].split('.'))
+    return tuple(x for x in value[1:].split('.'))
 
 
 def SX_LVSTRING(fh, cache):
     value = SX_LSCALAR(fh, cache)
-    return tuple(int(x) for x in value[1:].split('.'))
+    return tuple(x for x in value[1:].split('.'))
 
 
 # *AFTER* all the subroutines
@@ -302,12 +385,13 @@ exclude_for_cache = {
 }
 
 
+@maybelogged
 def handle_sx_object_refs(cache, data):
     iterateelements = None
     if type(data) is list:
         iterateelements = enumerate(data)
     elif type(data) is dict:
-        iterateelements = six.iteritems(data)
+        iterateelements = iter(data.items())
     else:
         return
 
@@ -319,6 +403,7 @@ def handle_sx_object_refs(cache, data):
     return data
 
 
+@maybelogged
 def process_item(fh, cache):
     magic_type = fh.read(1)
     if magic_type in exclude_for_cache:
@@ -331,16 +416,22 @@ def process_item(fh, cache):
     return data
 
 
+@maybelogged
 def thaw(frozen_data):
     fh = BytesIO(frozen_data)
-    return deserialize(fh)
+    data = deserialize(fh)
+    fh.close()
+    return data
 
 
+@maybelogged
 def retrieve(filepath):
+    data = None
     with open(filepath, 'rb') as fh:
         file_magic = fh.read(4)
         if file_magic == b'pst0':
-            return deserialize(fh)
+            data = deserialize(fh)
+    return data
 
 
 def _read_unsigned_byte(fh):
@@ -348,11 +439,13 @@ def _read_unsigned_byte(fh):
 
 
 def skip_magic_header_if_present(fh):
+    curr_pos = fh.tell()
     file_magic = fh.read(4)
     if file_magic != b'pst0':
-        fh.seek(0)
+        fh.seek(curr_pos)
 
 
+@maybelogged
 def deserialize(fh):
     skip_magic_header_if_present(fh)
     magic_byte = _read_unsigned_byte(fh)
@@ -391,7 +484,9 @@ def deserialize(fh):
             byteorder = '<'
         else:
             byteorder = '>'
-        intsize, longsize, ptrsize = unpack('3B', fh.read(3))
+
+        x = fh.read(3)
+        intsize, longsize, ptrsize = unpack('3B', x)
         if (major_version_number, minor_version_number) >= (2, 2):
             nvsize = _read_unsigned_byte(fh)
             if nvsize > 8:
