@@ -74,9 +74,9 @@ Running
 I highly recommend using ``pytest`` to run the tests. This has several reasons:
 
 * Unit-tests are dynamically generated and there is no runner included. Pytest
-  comes with it's own really useful runner.
+  comes with its own really useful runner.
 * Depending on bug/error the console output becomes barely readable due to the
-  sheer number of tests. ``pytest`` can help with better ``stout`` handling and
+  sheer number of tests. ``pytest`` can help with better ``stdout`` handling and
   ``--exitfirst``.
 * ``pytest`` can easily limit the executed tests using ``-k``.
 

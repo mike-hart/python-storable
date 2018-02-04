@@ -87,9 +87,8 @@ serialize_null.magic_type = b'\x05'
 def serialize_array(py_arr):
     # note, for 0-length arrays, it'll be the length
     # and then nothing after
-    ret_bytes = bytes()
     return bytes(byte_len(len(py_arr))
-                 + b''.join([process_item(x) for x in py_arr]))
+                 + b''.join(process_item(x) for x in py_arr))
 serialize_array.magic_type = b'\x04\x02'  # reference, then array
 
 
@@ -109,7 +108,7 @@ def serialize_dict(py_dict):
 serialize_dict.magic_type = b'\x03'
 
 
-INT_MAX = 2147483647
+INT_MAX = 2 ** 31 - 1  # Maximum positive value for signed 32 bit int
 
 
 def detect_type(x):
@@ -135,12 +134,15 @@ def detect_type(x):
     elif x is None:
         return serialize_null
     elif isinstance(x, str):
-        if max([ord(c) for c in x]) > 128:
+        try:
+            x.encode('ascii')
+        except UnicodeEncodeError:
             return serialize_unicode
-        elif len(x) < 256:
-            return serialize_scalar
         else:
-            return serialize_longscalar
+            if len(x) < 256:
+                return serialize_scalar
+            else:
+                return serialize_longscalar
     else:
         raise NotImplementedError("unable to serialize %s" % x)
 

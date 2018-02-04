@@ -10,7 +10,7 @@ Overview
 This is a Python module that is be able to read Perl storable files. Storable
 is a nice and efficient binary format for Perl that is very popular. A lot of
 other serialization/deserialization modules exist that are even more or less
-standardized: JSON, XML, CSV,.. etc. Storable is more or less Perl specific.
+standardized: JSON, XML, CSV, etc. Storable is more or less Perl specific.
 
 To ease integration between Perl - where storable sometimes is the only option
 - and Python this module is a bridge.

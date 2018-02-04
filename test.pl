@@ -14,8 +14,8 @@ use Config;
 use Storable qw(nfreeze freeze nstore store);
 
 # make the base path
-my $base = 
-    "$FindBin::Bin/t/resources/$Config{myarchname}/$Storable::VERSION";
+my $base =
+    "$FindBin::Bin/tests/resources/$Config{myarchname}/$Storable::VERSION";
 mkpath($base);
 my $filenames = {};
 my $count     = 0;
@@ -59,101 +59,101 @@ save_sample('ref04', \\\\@array);
 {
     # same object, added + shared multiple times in an array. In python,
     # that is preferrably also the same object. This is possible too. Note
-    # that this is a reference SX_OBJECT test allready too
+    # that this is a reference SX_OBJECT test already too
     $array[5] = 'x';
-    my $a = [undef, \@array, \@array, \\@array, \\@array];
-    save_sample('complex01', $a);
+    my $x = [undef, \@array, \@array, \\@array, \\@array];
+    save_sample('complex01', $x);
 }
 
 {
     # in perl, a scalar copy is a scalar copy, hence 2 different objects
     # in python
-    my $a = {aa => 'bb'};
-    $a->{cc} = $a->{aa};
-    save_sample('complex02', $a);
+    my $x = {aa => 'bb'};
+    $x->{cc} = $x->{aa};
+    save_sample('complex02', $x);
 }
 
 {
     # .. but a ref must make it the same object. NOTE: in python, everything
     # is a ref, hence, no extra ref/deref is possible. This basically needs
     # to give the same result in python as the previous sample.
-    my $a = {aa => 'bb'};
-    $a->{cc} = \$a->{aa};
-    save_sample('complex03', $a);
+    my $x = {aa => 'bb'};
+    $x->{cc} = \$x->{aa};
+    save_sample('complex03', $x);
 }
 
 {
     # same thing with an array of course. The 'a', 'b', 'c' appear to be tied
     # scalars in a storable too.
-    my $a = [undef, 6, [qw(a b c), {'uu' => 5.6}]];
-    $a->[6] = \$a->[0];
-    $a->[7] = \$a->[1];
-    $a->[5] =  $a->[2];
-    $a->[4] =  $a->[2][3];
-    $a->[3] =  $a->[2][3];
-    save_sample('complex04', $a);
+    my $x = [undef, 6, [qw(a b c), {'uu' => 5.6}]];
+    $x->[6] = \$x->[0];
+    $x->[7] = \$x->[1];
+    $x->[5] =  $x->[2];
+    $x->[4] =  $x->[2][3];
+    $x->[3] =  $x->[2][3];
+    save_sample('complex04', $x);
 
-    # a small circular one: hash with ref to it's own
-    $a->[2][3]{ii} = $a->[2][3];
-    save_sample('complex05', $a);
+    # a small circular one: hash with ref to its own
+    $x->[2][3]{ii} = $x->[2][3];
+    save_sample('complex05', $x);
 
     # a circular one over the entire structure.... niiiice.
-    $a->[2][3]{oo} = $a;
-    save_sample('complex06', $a);
+    $x->[2][3]{oo} = $x;
+    save_sample('complex06', $x);
 }
 
 {
     # small circular one with an array
-    my $a = [undef, 'yy'];
-    push @{$a}, $a;
-    save_sample('complex07', $a);
+    my $x = [undef, 'yy'];
+    push @{$x}, $x;
+    save_sample('complex07', $x);
 }
 
 {
     # same but try to make 'a', 'b', 'c' not tied scalars
-    my $a = [undef, 6, ['a', 'b', 'c', {'uu' => 5.6}]];
-    $a->[6] = \$a->[0];
-    $a->[7] = \$a->[1];
-    $a->[5] =  $a->[2];
-    $a->[4] =  $a->[2][3];
-    $a->[3] =  $a->[2][3];
-    save_sample('complex08', $a);
+    my $x = [undef, 6, ['a', 'b', 'c', {'uu' => 5.6}]];
+    $x->[6] = \$x->[0];
+    $x->[7] = \$x->[1];
+    $x->[5] =  $x->[2];
+    $x->[4] =  $x->[2][3];
+    $x->[3] =  $x->[2][3];
+    save_sample('complex08', $x);
 }
 
 {
     # bless test: scalar, $test is undef => will result in 'None'
-    my $a = bless \my $test, 'Aa::Bb';
-    save_sample('bless01', $a);
+    my $x = bless \my $test, 'Aa::Bb';
+    save_sample('bless01', $x);
 }
 
 {
     # bless test: scalar, $test is 'Test' => will result in 'Test'
     my $test = 'Test';
-    my $a = bless \$test, 'Aa::Bb';
-    save_sample('bless02', $a);
+    my $x = bless \$test, 'Aa::Bb';
+    save_sample('bless02', $x);
 }
 
 {
     # bless test: array
-    my $a = bless [], 'Aa::Bb';
-    save_sample('bless03', $a);
+    my $x = bless [], 'Aa::Bb';
+    save_sample('bless03', $x);
 }
 
 {
     # bless test: hash
-    my $a = bless {}, 'Aa::Bb';
-    save_sample('bless04', $a);
+    my $x = bless {}, 'Aa::Bb';
+    save_sample('bless04', $x);
 }
 
 {
     # bless test: ref to a ref
-    my $a = bless \{}, 'Aa::Bb';
-    save_sample('bless05', $a);
+    my $x = bless \{}, 'Aa::Bb';
+    save_sample('bless05', $x);
 }
 
 {
     # bless test: more than one bless, all the same one though
-    my $a = bless [
+    my $x = bless [
         bless({}, 'Aa::Bb'),
         bless([], 'Aa::Bb'),
         bless(\[], 'Aa::Bb'),
@@ -164,25 +164,25 @@ save_sample('ref04', \\\\@array);
         bless(['TestC'], 'Aa::Cc'),
         bless(['TestD', bless({0=>bless([], 'Aa::Bb')}, 'Aa::Cc')], 'Aa::Bb'),
     ], 'Aa::Bb';
-    save_sample('bless06', $a);
+    save_sample('bless06', $x);
 }
 
 {
     # bless test: bless without a package
-    my $a = bless [];
-    save_sample('bless07', $a);
+    my $x = bless [];
+    save_sample('bless07', $x);
 }
 
 {
     # utf-8 test
-    my $a = "\x{263A}";
-    save_sample('utf8test01', \$a);
+    my $x = "\x{263A}";
+    save_sample('utf8test01', \$x);
 }
 
 {
     # utf-8 test: large scalar
-    my $a = "\x{263A}" x 1024;
-    save_sample('utf8test02', \$a);
+    my $x = "\x{263A}" x 1024;
+    save_sample('utf8test02', \$x);
 }
 
 {
@@ -194,7 +194,7 @@ save_sample('ref04', \\\\@array);
     }
 
     package main;
-    
+
     my $h = Test->new();
     save_sample('medium_complex_hook_test', $h);
 }
@@ -208,7 +208,7 @@ save_sample('ref04', \\\\@array);
     }
 
     package main;
-    
+
     my $h = Test2->new();
     save_sample('medium_complex_hook_test_large_array', $h);
 }
@@ -222,9 +222,9 @@ save_sample('ref04', \\\\@array);
     }
 
     package main;
-    
-    my $a = [ Test3->new(), Test3->new() ];
-    save_sample('medium_complex_multiple_hook_test', $a);
+
+    my $x = [ Test3->new(), Test3->new() ];
+    save_sample('medium_complex_multiple_hook_test', $x);
 }
 
 {
@@ -236,9 +236,9 @@ save_sample('ref04', \\\\@array);
     }
 
     package main;
-    
-    my $a = [ Test4->new('var 1'), Test4->new('var 2') ];
-    save_sample('medium_complex_multiple_hook_test2', $a);
+
+    my $x = [ Test4->new('var 1'), Test4->new('var 2') ];
+    save_sample('medium_complex_multiple_hook_test2', $x);
 }
 
 {
@@ -250,9 +250,9 @@ save_sample('ref04', \\\\@array);
     }
 
     package main;
-    
-    my $a = [ Test6->new('avar 1'), Test6->new('avar 2') ];
-    save_sample('medium_hook_array_test1', $a);
+
+    my $x = [ Test6->new('avar 1'), Test6->new('avar 2') ];
+    save_sample('medium_hook_array_test1', $x);
 }
 
 {
@@ -265,8 +265,8 @@ save_sample('ref04', \\\\@array);
 
     package main;
 
-    my $a = [ Test7->new('svar 1'), Test7->new('svar 2') ];
-    save_sample('medium_own_serialized1', $a);
+    my $x = [ Test7->new('svar 1'), Test7->new('svar 2') ];
+    save_sample('medium_own_serialized1', $x);
 }
 
 {
@@ -279,8 +279,8 @@ save_sample('ref04', \\\\@array);
 
     package main;
 
-    my $a = Test8->new('scalar var 1');
-    save_sample('medium_hook_scalar', $a);
+    my $x = Test8->new('scalar var 1');
+    save_sample('medium_hook_scalar', $x);
 }
 
 {
@@ -293,8 +293,8 @@ save_sample('ref04', \\\\@array);
 
     package main;
 
-    my $a = Test9->new('large scalar var 1');
-    save_sample('large_frozen_string_hook', $a);
+    my $x = Test9->new('large scalar var 1');
+    save_sample('large_frozen_string_hook', $x);
 }
 
 {
@@ -306,15 +306,15 @@ save_sample('ref04', \\\\@array);
     }
 
     package main;
-    
+
     my $b = Test10->new('scalar var 1');
-    my $a = [ 
+    my $x = [
         $b,
-        Test10->new('scalar var 2'), 
+        Test10->new('scalar var 2'),
         Test10->new('scalar var 3'),
         $b
     ];
-    save_sample('medium_hook_array_three', $a);
+    save_sample('medium_hook_array_three', $x);
 }
 
 {
@@ -364,14 +364,14 @@ save_sample('ref04', \\\\@array);
 
 {
     # Version test (short)
-    my $a = v5.6.0.0.35;
-    save_sample('version_test01_short', \$a);
+    my $x = v5.6.0.0.35;
+    save_sample('version_test01_short', \$x);
 }
 
 {
     # Version test (long)
-    my $a = v5.6.0.0.35555555555.5555555555.555555555.555555555.555555555.5555555555.5555555555.5555555.555555555.55555555.555555555.55555555.555555555.555555555.555555555.5555555555.5555555555.5555555.555555555.33333333.333333333.33333333.333333333.333333333.333333333.1111111111;
-    save_sample('version_test02_long', \$a);
+    my $x = v5.6.0.0.35555555555.5555555555.555555555.555555555.555555555.5555555555.5555555555.5555555.555555555.55555555.555555555.55555555.555555555.555555555.555555555.5555555555.5555555555.5555555.555555555.33333333.333333333.33333333.333333333.333333333.333333333.1111111111;
+    save_sample('version_test02_long', \$x);
 }
 
 sub save_sample {
@@ -381,23 +381,23 @@ sub save_sample {
     for my $type (qw(freeze nfreeze)){
         my $filename = generate_filename($what, $count, $type);
         push @filenames, $filename;
-        my $a;
+        my $x;
         {
             no strict 'refs';
-            $a = &$type($data);
+            $x = &$type($data);
         }
         open(my $fh, '>', $filename);
-        print $fh $a;
+        print $fh $x;
         close($fh);
     }
 
     for my $type (qw(store nstore)){
         my $filename = generate_filename($what, $count, $type);
         push @filenames, $filename;
-        my $a;
+        my $x;
         {
             no strict 'refs';
-            $a = &$type($data, $filename);
+            $x = &$type($data, $filename);
         }
     }
     return @filenames;

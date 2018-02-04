@@ -27,8 +27,9 @@
 
 from functools import wraps
 from io import BytesIO
-from struct import calcsize, unpack
+import itertools
 import logging
+from struct import calcsize, unpack
 import sys
 
 
@@ -36,14 +37,7 @@ if sys.version_info > (3, 0):
     xrange = range
 
 
-def id_():
-    n = 0
-    while True:
-        n += 1
-        yield n
-
-
-ID_GENERATOR = id_()
+ID_GENERATOR = itertools.count(1)
 LOG = logging.getLogger(__name__)
 DEBUG = False
 
@@ -68,9 +62,9 @@ def _guess_type(data):
         try:
             converted_result = data.decode('ascii')
         except UnicodeDecodeError:
-            converted_result = None
+            converted_result = data
 
-    return data if converted_result is None else converted_result
+    return converted_result
 
 
 def maybelogged(f):
@@ -334,12 +328,12 @@ def SX_FLAG_HASH(fh, cache):
 
 def SX_VSTRING(fh, cache):
     value = SX_SCALAR(fh, cache)
-    return tuple(x for x in value[1:].split('.'))
+    return tuple(value[1:].split('.'))
 
 
 def SX_LVSTRING(fh, cache):
     value = SX_LSCALAR(fh, cache)
-    return tuple(x for x in value[1:].split('.'))
+    return tuple(value[1:].split('.'))
 
 
 # *AFTER* all the subroutines
@@ -418,9 +412,8 @@ def process_item(fh, cache):
 
 @maybelogged
 def thaw(frozen_data):
-    fh = BytesIO(frozen_data)
-    data = deserialize(fh)
-    fh.close()
+    with BytesIO(frozen_data) as fh:
+        data = deserialize(fh)
     return data
 
 

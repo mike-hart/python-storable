@@ -39,9 +39,8 @@ def determine_outfile(infile):
 
 
 def mythaw(infile):
-    infh = open(infile, 'rb')
-    data = infh.read()
-    infh.close()
+    with open(infile, 'rb') as infh:
+        data = infh.read()
     data = storable.thaw(data)
     return data
 
@@ -84,17 +83,25 @@ def make_function(deserializer, infile, outfile):
             'Deserialisation of %r did not equal the data '
             'given in %r' % (infile, outfile))
         try:
-            reserialized_data = storable.thaw(storable.output.serialize(data))
+            serialized = storable.output.serialize(data)
         except RuntimeError as err:
-            if err.args == ('maximum recursion depth exceeded while calling a Python object',):
-                reserialized_data = None
+            if err.args and err.args[0].lower().startswith(
+                'maximum recursion depth exceeded'
+            ):
+                # above mess to cope with both 2.7 and 3.5+ changes to how max
+                # recursion depth is handled
+                test_instance.skipTest(
+                    'File {!r} cannot be serialized since it causes infinite'
+                    ' recursion in the python serializer'.format(infile)
+                )
             else:
                 raise
-        if reserialized_data is not None:
-            assertion_function(
-                data, reserialized_data,
-                'Serialization of %r did not equal the data '
-                'given in %r' % (data, reserialized_data))
+        else:
+            reserialized_data = storable.thaw(serialized)
+        assertion_function(
+            data, reserialized_data,
+            'Serialization of %r did not equal the data '
+            'given in %r' % (data, reserialized_data))
 
     return fun
 
@@ -161,7 +168,7 @@ for arch, supported_versions in architectures:
 
     # Remove the temporarily created class from the global scope (to avoid
     # duplicate discovery)
-    del(cls)
+    del cls
 
 
 class TestSanity(unittest.TestCase):
