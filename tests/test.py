@@ -82,6 +82,20 @@ def make_function(deserializer, infile, outfile):
             data, result_we_need,
             'Deserialisation of %r did not equal the data '
             'given in %r' % (infile, outfile))
+
+    return fun
+
+
+def make_serialize_function(deserializer, infile, outfile):
+
+    def fun(test_instance):
+        if not exists(outfile):
+            test_instance.skipTest(
+                'Expected output file %r not found!' % outfile)
+
+        assertion_function = test_instance.assertEqual
+        # Now we have proper data which we can compare in detail.
+        data = deserializer(infile)
         try:
             serialized = storable.output.serialize(data)
         except RuntimeError as err:
@@ -132,6 +146,11 @@ def attach_tests(cls, source_folder, architecture, storable_version, type):
         fun = make_function(deserializer, infile, outfile)
 
         # now that the function is defined, we can attach it to the test-class.
+        setattr(cls, function_name, fun)
+
+        # make another function to attempt serialization
+        function_name = 'test_serialize_%s' % (P_ID.sub('_', basename(infile)))
+        fun = make_serialize_function(deserializer, infile, outfile)
         setattr(cls, function_name, fun)
 
 
